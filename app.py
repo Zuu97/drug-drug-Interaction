@@ -23,14 +23,14 @@ app = Flask(__name__)
 
 ddi = DDImodel()
 ddi.dnn()
-ddi_value = ddi.predictions(100)
 
 @app.route("/predict", methods=["POST"])
 def predict():
     message = request.get_json(force=True)
     drug_id = message['drug_id']
+    ddi_value = ddi.predictions(int(drug_id))
     response = {
-            'ddi_value': ddi_value
+            'ddi_value': int(ddi_value)
     }
     return jsonify(response)
 
