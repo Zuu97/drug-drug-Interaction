@@ -27,14 +27,17 @@ from collections import Counter
 class DDImodel(object):
     def __init__(self):
         X, Y = get_data()
-        Xssp, Xtsp, Xgsp = X
-        self.Xssp = Xssp
-        self.Xtsp = Xtsp
-        self.Xgsp = Xgsp
+        XsspA, XtspA, XgspA, XsspB, XtspB, XgspB = X
+        self.XsspA = XsspA
+        self.XtspA = XtspA
+        self.XgspA = XgspA
+        self.XsspB = XsspB
+        self.XtspB = XtspB
+        self.XgspB = XgspB
         self.Y = Y
 
     @staticmethod
-    def autoencoder(X, input_dim, autoencoder_weights):
+    def autoencoder(XA, XB, input_dim, autoencoder_weights):
 
         if os.path.exists(autoencoder_weights):
             print(" {} model Loading !!!".format(autoencoder_weights.split('/')[1][:-3]))
@@ -45,22 +48,27 @@ class DDImodel(object):
                                     )
         else:
             print(" {} model Training !!!".format(autoencoder_weights.split('/')[1][:-3]))
-            inputs = Input(shape=(input_dim,))
+            inputA = Input(shape=(input_dim,))
+            inputB = Input(shape=(input_dim,))
+            inputs = concatenate([inputA, inputB])
             x = Dense(dim1, activation='relu')(inputs)
             x = Dense(dim2, activation='relu')(x)
             x = Dense(dim3, activation='relu')(x)
             x = Dense(dim2, activation='relu')(x)
             x = Dense(dim1, activation='relu')(x)
-            output = Dense(input_dim, activation='relu')(x)
+            output = Dense(2*input_dim, activation='relu')(x)
 
-            autoencoder_model = Model(inputs, output)
+            autoencoder_model = Model(inputs=[inputA, inputB],
+                                      outputs=output)
 
             autoencoder_model.compile(
                                     optimizer='adam',
                                     loss='binary_crossentropy'
                                     )
 
-            autoencoder_model.fit(  X,
+            X = np.concatenate((XA, XB), axis=1)
+
+            autoencoder_model.fit(  [XA, XB],
                                     X,
                                     epochs=n_epochs,
                                     batch_size=batch_size,
@@ -73,36 +81,42 @@ class DDImodel(object):
 
     @staticmethod
     def encoder(input_dim, autoencoder_model):
-        inputs = Input(shape=(input_dim,))
-        layer1 = Dense(dim1, activation='relu', trainable=False, weights=autoencoder_model.layers[1].get_weights())(inputs)
-        layer2 = Dense(dim2, activation='relu', trainable=False, weights=autoencoder_model.layers[2].get_weights())(layer1)
-        layer3 = Dense(dim3, activation='relu', trainable=False, weights=autoencoder_model.layers[3].get_weights())(layer2)
+        inputA = Input(shape=(input_dim,))
+        inputB = Input(shape=(input_dim,))
+        inputs = concatenate([inputA, inputB])
+        layer1 = Dense(dim1, activation='relu', trainable=False, weights=autoencoder_model.layers[3].get_weights())(inputs)
+        layer2 = Dense(dim2, activation='relu', trainable=False, weights=autoencoder_model.layers[4].get_weights())(layer1)
+        layer3 = Dense(dim3, activation='relu', trainable=False, weights=autoencoder_model.layers[5].get_weights())(layer2)
 
-        return inputs, layer3
+        return inputA, inputB, layer3
 
     def train_autoencoder(self):
-        ssp_autoencoder = DDImodel.autoencoder(self.Xssp, n_ssp, ssp_weights)
-        tsp_autoencoder = DDImodel.autoencoder(self.Xtsp, n_tsp, tsp_weights)
-        gsp_autoencoder = DDImodel.autoencoder(self.Xgsp, n_gsp, gsp_weights)
+        ssp_autoencoder = DDImodel.autoencoder(self.XsspA, self.XsspB, n_ssp, ssp_weights)
+        tsp_autoencoder = DDImodel.autoencoder(self.XtspA, self.XtspB, n_tsp, tsp_weights)
+        gsp_autoencoder = DDImodel.autoencoder(self.XgspA, self.XgspB, n_gsp, gsp_weights)
 
         return ssp_autoencoder, tsp_autoencoder, gsp_autoencoder
 
     @staticmethod
     def get_encoder_output(ssp_autoencoder, tsp_autoencoder, gsp_autoencoder):
-        ssp_inputs, ssp_out = DDImodel.encoder(n_ssp, ssp_autoencoder)
-        tsp_inputs, tsp_out = DDImodel.encoder(n_tsp, tsp_autoencoder)
-        gsp_inputs, gsp_out = DDImodel.encoder(n_gsp, gsp_autoencoder)
+        ssp_inputsA, ssp_inputsB, ssp_out = DDImodel.encoder(n_ssp, ssp_autoencoder)
+        tsp_inputsA, tsp_inputsB, tsp_out = DDImodel.encoder(n_tsp, tsp_autoencoder)
+        gsp_inputsA, gsp_inputsB, gsp_out = DDImodel.encoder(n_gsp, gsp_autoencoder)
 
-        return ssp_inputs, tsp_inputs, gsp_inputs, ssp_out, tsp_out, gsp_out
+        inputsA = ssp_inputsA, tsp_inputsA, gsp_inputsA
+        inputsB = ssp_inputsB, tsp_inputsB, gsp_inputsB
+        outputs = ssp_out, tsp_out, gsp_out
+        return inputsA, inputsB, outputs
 
     def build_dnn_input(self):
         ssp_autoencoder, tsp_autoencoder, gsp_autoencoder = self.train_autoencoder()
-        ssp_inputs, tsp_inputs, gsp_inputs, ssp_out, tsp_out, gsp_out = DDImodel.get_encoder_output(ssp_autoencoder, tsp_autoencoder, gsp_autoencoder)
+        inputsA, inputsB, outputs = DDImodel.get_encoder_output(ssp_autoencoder, tsp_autoencoder, gsp_autoencoder)
+
+        ssp_out, tsp_out, gsp_out = outputs
 
         merged = concatenate([ssp_out, tsp_out])
         dnn_input = concatenate([merged,  gsp_out])
-        # dnn_input = concatenate([ssp_out, tsp_out,  tsp_out])
-        return ssp_inputs, tsp_inputs, gsp_inputs, dnn_input
+        return inputsA, inputsB, dnn_input
 
     def dnn(self):
         if os.path.exists(dnn_weights):
@@ -110,29 +124,32 @@ class DDImodel(object):
             dnn_model = load_model(dnn_weights)
             dnn_model.compile(
                             optimizer='adam',
-                            loss='binary_crossentropy'
+                            loss='sparse_categorical_crossentropy'
                             )
         else:
-            ssp_inputs, tsp_inputs, gsp_inputs, dnn_input = self.build_dnn_input()
+            inputsA, inputsB, dnn_input = self.build_dnn_input()
+
+            ssp_inputsA, tsp_inputsA, gsp_inputsA = inputsA
+            ssp_inputsB, tsp_inputsB, gsp_inputsB = inputsB
 
             print("\n Final Model Training !!!")
             x = Dense(dense1, activation='relu')(dnn_input)
             x = Dense(dense2, activation='relu')(x)
             x = Dense(dense3, activation='relu')(x)
-            output = Dense(dense4, activation='sigmoid')(x)
+            output = Dense(dense4, activation='softmax')(x)
 
-            dnn_model = Model(inputs = [ssp_inputs, tsp_inputs, gsp_inputs],
+            dnn_model = Model(inputs = [ssp_inputsA, ssp_inputsB, tsp_inputsA, tsp_inputsB, gsp_inputsA, gsp_inputsB],
                               outputs= output,
-                              name='FInal DNN')
+                              name='Final DNN')
 
             dnn_model.summary()
 
             dnn_model.compile(
                             optimizer='adam',
-                            loss='binary_crossentropy'
+                            loss='sparse_categorical_crossentropy'
                             )
 
-            dnn_model.fit(  [self.Xssp, self.Xtsp, self.Xgsp],
+            dnn_model.fit(  [self.XsspA, self.XsspB, self.XtspA, self.XtspB, self.XgspA, self.XgspB],
                             self.Y,
                             epochs=dnn_epoches,
                             batch_size=batch_size,
@@ -141,8 +158,21 @@ class DDImodel(object):
             dnn_model.save(dnn_weights)
         self.dnn_model = dnn_model
 
-    def predictions(self, drug_id):
-        X = [[self.Xssp[drug_id]], [self.Xtsp[drug_id]], [self.Xgsp[drug_id]]]
-        Y = self.Y[drug_id]
-        P = (self.dnn_model.predict(X).squeeze() > threshold)
+    def predictions(self, drug_pair_id):
+        X = [[self.XsspA[drug_pair_id]],
+            [self.XsspB[drug_pair_id]],
+            [self.XtspA[drug_pair_id]],
+            [self.XtspB[drug_pair_id]],
+            [self.XgspA[drug_pair_id]],
+            [self.XgspB[drug_pair_id]]]
+
+        # X = [self.XsspA[drug_pair_id:drug_pair_id+100],
+        #     self.XsspB[drug_pair_id:drug_pair_id+100],
+        #     self.XtspA[drug_pair_id:drug_pair_id+100],
+        #     self.XtspB[drug_pair_id:drug_pair_id+100],
+        #     self.XgspA[drug_pair_id:drug_pair_id+100],
+        #     self.XgspB[drug_pair_id:drug_pair_id+100]]
+
+        Y = self.Y[drug_pair_id]
+        P = self.dnn_model.predict(X).squeeze().argmax(axis=-1)
         return P

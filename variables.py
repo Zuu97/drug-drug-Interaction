@@ -1,4 +1,4 @@
-n_drugs = 10000
+n_drug_pairs = 10000
 seed = 42
 batch_size = 64
 val_split = 0.2
@@ -24,6 +24,6 @@ gsp_weights = "Weights/autoencoder_gsp.h5"
 dense1 = 64
 dense2 = 64
 dense3 = 64
-dense4 = 1
+dense4 = 10
 dnn_weights = "Weights/dnn.h5"
 dnn_epoches = 50
