@@ -12,7 +12,6 @@ import tensorflow as tf
 from sklearn.utils import shuffle
 
 from tensorflow import keras
-import tensorflow as tf
 if tf.config.list_physical_devices('GPU'):
     physical_devices = tf.config.list_physical_devices('GPU')
     tf.config.experimental.set_memory_growth(physical_devices[0], True)
@@ -75,13 +74,9 @@ class DDImodel(object):
     @staticmethod
     def encoder(input_dim, autoencoder_model):
         inputs = Input(shape=(input_dim,))
-        layer1 = Dense(dim1, activation='relu', trainable=False)(inputs)
-        layer2 = Dense(dim2, activation='relu', trainable=False)(layer1)
-        layer3 = Dense(dim3, activation='relu', trainable=False)(layer2)
-
-        # layer1.set_weights(autoencoder_model.layers[1].get_weights())
-        # layer2.set_weights(autoencoder_model.layers[2].get_weights())
-        # layer3.set_weights(autoencoder_model.layers[3].get_weights())
+        layer1 = Dense(dim1, activation='relu', trainable=False, weights=autoencoder_model.layers[1].get_weights())(inputs)
+        layer2 = Dense(dim2, activation='relu', trainable=False, weights=autoencoder_model.layers[2].get_weights())(layer1)
+        layer3 = Dense(dim3, activation='relu', trainable=False, weights=autoencoder_model.layers[3].get_weights())(layer2)
 
         return inputs, layer3
 
@@ -127,6 +122,8 @@ class DDImodel(object):
 
             dnn_model = Model(inputs = [ssp_inputs, tsp_inputs, gsp_inputs],
                               outputs= output)
+
+            dnn_model.summary()
 
             dnn_model.compile(
                             optimizer='adam',
