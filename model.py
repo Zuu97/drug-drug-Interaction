@@ -100,7 +100,8 @@ class DDImodel(object):
         ssp_inputs, tsp_inputs, gsp_inputs, ssp_out, tsp_out, gsp_out = DDImodel.get_encoder_output(ssp_autoencoder, tsp_autoencoder, gsp_autoencoder)
 
         merged = concatenate([ssp_out, tsp_out])
-        dnn_input = concatenate([merged,  tsp_out])
+        dnn_input = concatenate([merged,  gsp_out])
+        # dnn_input = concatenate([ssp_out, tsp_out,  tsp_out])
         return ssp_inputs, tsp_inputs, gsp_inputs, dnn_input
 
     def dnn(self):
@@ -121,7 +122,8 @@ class DDImodel(object):
             output = Dense(dense4, activation='sigmoid')(x)
 
             dnn_model = Model(inputs = [ssp_inputs, tsp_inputs, gsp_inputs],
-                              outputs= output)
+                              outputs= output,
+                              name='FInal DNN')
 
             dnn_model.summary()
 
@@ -137,4 +139,10 @@ class DDImodel(object):
                             validation_split=val_split
                                     )
             dnn_model.save(dnn_weights)
+        self.dnn_model = dnn_model
 
+    def predictions(self, drug_id):
+        X = [[self.Xssp[drug_id]], [self.Xtsp[drug_id]], [self.Xgsp[drug_id]]]
+        Y = self.Y[drug_id]
+        P = (self.dnn_model.predict(X).squeeze() > threshold)
+        return P

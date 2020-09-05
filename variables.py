@@ -4,11 +4,12 @@ batch_size = 64
 val_split = 0.2
 host = '0.0.0.0'
 port = 5000
+threshold = 0.5
 
 # Input feature Dimensions
 n_ssp = 1000
-n_tsp = 1000
-n_gsp = 1000
+n_tsp = 1100
+n_gsp = 1200
 
 # AutoEncoder parameters
 dim1 = 512
