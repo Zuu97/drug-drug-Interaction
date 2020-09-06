@@ -1,4 +1,5 @@
 n_drug_pairs = 10000
+n_drugs = 200
 seed = 42
 batch_size = 64
 val_split = 0.2
