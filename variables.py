@@ -6,7 +6,9 @@ val_split = 0.2
 host = '0.0.0.0'
 port = 5000
 threshold = 0.5
-
+table_name = 'ddi_prediction'
+root_password = '1234'
+db_url = 'mysql+pymysql://root:{}@localhost:3306/ddi'.format(root_password)
 # Input feature Dimensions
 n_ssp = 1000
 n_tsp = 1100

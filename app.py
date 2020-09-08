@@ -9,7 +9,7 @@ from model import DDImodel
 import logging
 logging.getLogger('tensorflow').disabled = True
 
-from util import get_data
+from util import get_data, update_db
 
 from flask import Flask
 from flask import jsonify
@@ -30,6 +30,7 @@ def predict():
     A_drug = message['A_drug']
     B_drug = message['B_drug']
     ddi_value = ddi.predictions(int(A_drug), int(B_drug))
+    update_db(A_drug, B_drug, int(ddi_value))
     response = {
             'ddi_value': int(ddi_value)
     }
