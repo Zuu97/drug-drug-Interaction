@@ -24,6 +24,9 @@ from variables import *
 from util import get_data, get_prediction_data
 from collections import Counter
 
+from sqlalchemy import create_engine
+import sqlalchemy
+
 class DDImodel(object):
     def __init__(self):
         if not os.path.exists(dnn_weights):
@@ -155,3 +158,15 @@ class DDImodel(object):
         X = get_prediction_data(A_drug, B_drug)
         P = self.dnn_model.predict(X).squeeze().argmax(axis=-1)
         return P
+
+    def update_db(self, A_drug, B_drug):
+        engine = create_engine(db_url)
+        if table_name in sqlalchemy.inspect(engine).get_table_names():
+            data = pd.read_sql_table(table_name, db_url)
+            df_length = len(data.values)
+            prediction = self.predictions(A_drug, B_drug)
+            data.loc[df_length+1] = [A_drug, B_drug, int(prediction)]
+            with engine.connect() as conn, conn.begin():
+                data.to_sql(table_name, conn, if_exists='append', index=False)
+        else:
+            print("Create a Table named {}".format(table_name))

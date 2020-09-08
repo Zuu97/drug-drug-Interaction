@@ -2,9 +2,6 @@ import numpy as np
 from sklearn.utils import shuffle
 import pandas as pd
 from variables import*
-
-from sqlalchemy import create_engine
-import sqlalchemy
 np.random.seed(seed)
 
 def generate_drug_pairs():
@@ -53,18 +50,8 @@ def get_prediction_data(A_drug, B_drug):
     # print(" Enter drug id less than {}".format(n_drugs))
     # A_drug = int(input(" Enter first  drug id:"))
     # B_drug = int(input(" Enter second drug id:"))
+    A_drug, B_drug = int(A_drug), int(B_drug)
     Xssp = np.concatenate((Xssp[A_drug], Xssp[B_drug]))
     Xtsp = np.concatenate((Xtsp[A_drug], Xtsp[B_drug]))
     Xgsp = np.concatenate((Xgsp[A_drug], Xgsp[B_drug]))
     return [[Xssp], [Xtsp], [Xgsp]]
-
-def update_db(A_drug, B_drug, prediction):
-    engine = create_engine(db_url)
-    if table_name in sqlalchemy.inspect(engine).get_table_names():
-        data = pd.read_sql_table(table_name, db_url)
-        df_length = len(data.values)
-        data.loc[df_length+1] = [A_drug, B_drug, prediction]
-        with engine.connect() as conn, conn.begin():
-            data.to_sql(table_name, conn, if_exists='append', index=False)
-    else:
-        print("Create a Table named {}".format(table_name))
