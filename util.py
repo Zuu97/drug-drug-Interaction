@@ -19,9 +19,9 @@ def generate_drug_pairs():
 
 def drug_data():
 
-    Xssp = np.random.randn(n_drugs, n_ssp) + 1
-    Xtsp = 0.5 * np.random.randn(n_drugs, n_tsp) + 2
-    Xgsp = 2 * np.random.randn(n_drugs, n_gsp) + 0.5
+    Xssp = np.random.randn(n_drugs, n_ssp)
+    Xtsp = np.random.randn(n_drugs, n_tsp)
+    Xgsp = np.random.randn(n_drugs, n_gsp)
     return Xssp, Xtsp, Xgsp
 
 def get_data():

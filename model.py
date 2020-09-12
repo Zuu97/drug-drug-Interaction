@@ -1,7 +1,7 @@
 import os
 import json
 import pandas as pd
-
+import matplotlib.pyplot as plt
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 import logging
@@ -20,6 +20,7 @@ from keras.models import model_from_json, load_model
 from sklearn.model_selection import train_test_split
 from keras.layers import Input, Dense, Dropout, concatenate
 from keras.models import Sequential, Model
+from keras.optimizers import Adam
 from variables import *
 from util import get_data, get_prediction_data
 from collections import Counter
@@ -51,9 +52,13 @@ class DDImodel(object):
             print(" {} model Training !!!".format(autoencoder_weights.split('/')[1][:-3]))
             inputs = Input(shape=(2*input_dim,))
             x = Dense(dim1, activation='relu')(inputs)
+            x = Dense(dim1, activation='relu')(x)
+            x = Dense(dim2, activation='relu')(x)
             x = Dense(dim2, activation='relu')(x)
             x = Dense(dim3, activation='relu')(x)
             x = Dense(dim2, activation='relu')(x)
+            x = Dense(dim2, activation='relu')(x)
+            x = Dense(dim1, activation='relu')(x)
             x = Dense(dim1, activation='relu')(x)
             output = Dense(2*input_dim, activation='relu')(x)
 
@@ -66,23 +71,39 @@ class DDImodel(object):
                                     )
 
 
-            autoencoder_model.fit(  X,
-                                    X,
-                                    epochs=n_epochs,
-                                    batch_size=batch_size,
-                                    validation_split=val_split,
-                                    verbose = 0
-                                    )
+            history_auctoencoder = autoencoder_model.fit(   X,
+                                                            X,
+                                                            epochs=n_epochs,
+                                                            batch_size=batch_size,
+                                                            validation_split=val_split,
+                                                            verbose = 0
+                                                            )
             autoencoder_model.save(autoencoder_weights)
+            DDImodel.plot_auctoencoder_metrics(history_auctoencoder, autoencoder_weights)
 
         return autoencoder_model
+
+    @staticmethod
+    def plot_auctoencoder_metrics(history_auctoencoder, autoencoder_weights):
+        loss_train = history_auctoencoder.history['loss']
+        loss_val = history_auctoencoder.history['val_loss']
+        plt.plot(np.arange(1,n_epochs+1), loss_train, 'r', label='Training loss')
+        plt.plot(np.arange(1,n_epochs+1), loss_val, 'b', label='validation loss')
+        plt.title('Training and Validation loss for {}'.format(autoencoder_weights.split('/')[1][:-3]))
+        plt.xlabel('Epochs')
+        plt.ylabel('Loss')
+        plt.savefig(autoencoder_loss_img.format(autoencoder_weights.split('/')[1][:-3]))
+        plt.legend()
+        plt.show()
 
     @staticmethod
     def encoder(input_dim, autoencoder_model):
         inputs = Input(shape=(2 * input_dim,))
         layer1 = Dense(dim1, activation='relu', trainable=False, weights=autoencoder_model.layers[1].get_weights())(inputs)
-        layer2 = Dense(dim2, activation='relu', trainable=False, weights=autoencoder_model.layers[2].get_weights())(layer1)
-        layer3 = Dense(dim3, activation='relu', trainable=False, weights=autoencoder_model.layers[3].get_weights())(layer2)
+        x = Dense(dim1, activation='relu', trainable=False, weights=autoencoder_model.layers[2].get_weights())(layer1)
+        x = Dense(dim2, activation='relu', trainable=False, weights=autoencoder_model.layers[3].get_weights())(x)
+        x = Dense(dim2, activation='relu', trainable=False, weights=autoencoder_model.layers[4].get_weights())(x)
+        layer3 = Dense(dim3, activation='relu', trainable=False, weights=autoencoder_model.layers[5].get_weights())(x)
 
         return inputs, layer3
 
@@ -140,19 +161,45 @@ class DDImodel(object):
             dnn_model.summary()
 
             dnn_model.compile(
-                            optimizer='adam',
+                            optimizer= Adam(learning_rate),
                             loss='sparse_categorical_crossentropy',
                             metrics=['accuracy']
                             )
 
-            dnn_model.fit(  [self.Xssp, self.Xtsp, self.Xgsp],
-                            self.Y,
-                            epochs=dnn_epoches,
-                            batch_size=batch_size,
-                            validation_split=val_split
-                                    )
+            self.history_dnn = dnn_model.fit([self.Xssp, self.Xtsp, self.Xgsp],
+                                             self.Y,
+                                             epochs=dnn_epoches,
+                                             batch_size=batch_size,
+                                             validation_split=val_split
+                                             )
             dnn_model.save(dnn_weights)
+
+            self.plot_dnn_metrics()
         self.dnn_model = dnn_model
+
+    def plot_dnn_metrics(self):
+
+        loss_train = self.history_dnn.history['loss']
+        loss_val = self.history_dnn.history['val_loss']
+        plt.plot(np.arange(1,dnn_epoches+1), loss_train, 'r', label='Training loss')
+        plt.plot(np.arange(1,dnn_epoches+1), loss_val, 'b', label='validation loss')
+        plt.title('Training and Validation loss for Final Model')
+        plt.xlabel('Epochs')
+        plt.ylabel('Loss')
+        plt.savefig(dnn_loss_img)
+        plt.legend()
+        plt.show()
+
+        acc_train = self.history_dnn.history['accuracy']
+        acc_val = self.history_dnn.history['val_accuracy']
+        plt.plot(np.arange(1,dnn_epoches+1), acc_train, 'r', label='Training Accuracy')
+        plt.plot(np.arange(1,dnn_epoches+1), acc_val, 'b', label='validation Accuracy')
+        plt.title('Training and Validation Accuracy for Final Model')
+        plt.xlabel('Epochs')
+        plt.ylabel('Accuracy')
+        plt.savefig(dnn_acc_img)
+        plt.legend()
+        plt.show()
 
     def predictions(self, A_drug, B_drug):
         X = get_prediction_data(A_drug, B_drug)
